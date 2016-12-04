@@ -167,6 +167,7 @@ function MatrixAccessory(log, output, input, client, config, io) {
         if (checkready.length == 2) {
             if (checkready[0].slice(2,3) == this.output+1) {
                 if(checkready[0].slice(5,6) == this.input+1) {
+                    this.log("Recieved command: " + this.name);
                     this.selfSet = true;
                     this.service
                       .getCharacteristic(Characteristic.On)
