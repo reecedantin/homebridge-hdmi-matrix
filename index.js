@@ -214,5 +214,4 @@ MatrixAccessory.prototype.setState = function (state, callback) {
 
 MatrixAccessory.prototype.getState = function (callback) {
     callback(null, this.currentIO.slice(5,6) == (this.input+1));
-    this.log(this.currentIO);
 }
