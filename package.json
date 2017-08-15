@@ -1,6 +1,6 @@
 {
   "name": "homebridge-hdmi-matrix",
-  "version": "0.0.2",
+  "version": "0.1.1",
   "description": "HDMI Matrix plugin for Homebridge: https://github.com/nfarina/homebridge",
   "license": "ISC",
   "keywords": [
@@ -25,7 +25,7 @@
     "url": "https://github.com/reecedantin/homebridge-hdmi-matrix/issues"
   },
   "homepage": "https://github.com/reecedantin/homebridge-hdmi-matrix#readme",
-  "_id": "homebridge-hdmi-matrix@0.0.1",
+  "_id": "homebridge-hdmi-matrix@0.1.1",
   "_shasum": "ae876fe3a6b9a22f4f06850cca73de8355243bc4",
   "_from": "../../Users/reecedantin/Desktop/node_modules/homebridge-hdmi-matrix",
   "_resolved": "file:../../Users/reecedantin/Desktop/node_modules/homebridge-hdmi-matrix",

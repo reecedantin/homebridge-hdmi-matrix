@@ -1,12 +1,11 @@
 //HDMI PLATFORM
 
-require('events').EventEmitter.prototype._maxListeners = 100;
 var net = require("net");
 var Service, Characteristic, Accessory, uuid;
 var inherits = require('util').inherits;
 var extend = require('util')._extend;
 
-//var currentIO = ["o01i01", "o02i01", "o03i01", "o04i01", "o05i01", "o06i01", "o07i01", "o08i01"];
+var firstcurrentIO = ["o01i01", "o02i01", "o03i01", "o04i01", "o05i01", "o06i01", "o07i01", "o08i01"];
 var clients = [];
 var clientsCurrentIO = [];
 
@@ -18,15 +17,7 @@ module.exports = function (homebridge) {
     Accessory = homebridge.hap.Accessory;
     uuid = homebridge.hap.uuid;
 
-    var acc = MatrixAccessory.prototype;
-    inherits(MatrixAccessory, Accessory);
-    MatrixAccessory.prototype.parent = Accessory.prototype;
-    for (var mn in acc) {
-        MatrixAccessory.prototype[mn] = acc[mn];
-    }
-
-    homebridge.registerPlatform("homebridge-hdmi-matrix", "HDMIMatrix",MatrixPlatform);
-    //homebridge.registerAccessory("homebridge-hdmi-matrix", "HDMIMatrix",MatrixAccessory);
+    homebridge.registerPlatform("homebridge-hdmi-matrix", "HDMIMatrix", MatrixPlatform);
 }
 
 function MatrixPlatform(log, config) {
@@ -41,6 +32,7 @@ MatrixPlatform.prototype.accessories = function (callback) {
             var results = [];
             var currentDeviceConfig = this.devices[deviceIndex];
 
+            //clientsCurrentIO.push(firstcurrentIO);
             clientsCurrentIO.push([]);
             var currentIO = clientsCurrentIO[deviceIndex];
             clients.push(new net.Socket());
@@ -56,16 +48,17 @@ MatrixPlatform.prototype.accessories = function (callback) {
 
             // client.setTimeout(10000, function (err) {
             //     this.log("Timed out connecting to " + host + ":" + port);
+            //     callback([]);
             //     client.destroy();
             // });
 
             var responseCount = 0;
             var finishedLoadingDevices = false;
+
             client.on('data', function (data) {
                 if(!finishedLoadingDevices) {
                     var response = data.toString('utf-8').trim();
                     var checkready = response.split("\n");
-
                     if (responseCount == 0) {
                         client.write('admin\r\n');
                     } else if (responseCount == 1) {
@@ -93,19 +86,15 @@ MatrixPlatform.prototype.accessories = function (callback) {
                             this.log("Found " + currentIO.length + "x" + currentIO.length +  " matrix.");
                             for (var i = 0; i < currentDeviceConfig.outputs.length; i++) {
                                 if (currentDeviceConfig.outputs[i] !== "") {
-                                    for (k = 0; k < currentDeviceConfig.inputs.length; k++) {
-                                        if (currentDeviceConfig.inputs[k] !== "") {
-                                            results.push(new MatrixAccessory(this.log, i, k, client, currentDeviceConfig, currentIO));
-                                            devicesProcessed++;
-                                        }
-                                    }
+                                    results.push(new MatrixOutput(this.log, i, currentIO.length, currentDeviceConfig, currentIO[i], client));
+                                    devicesProcessed++;
                                 }
                             }
                             if (results.length === 0)
                             {
                                   this.log("WARNING: No Accessories were loaded.");
                             }
-                            callback(results);
+                            callback(results)
                         } else {
                             this.log(new Error("Unexpected response in fetching devices from matrix: " + results));
                             callback(results);
@@ -116,49 +105,36 @@ MatrixPlatform.prototype.accessories = function (callback) {
                 }
             });
         }
+    } else {
+        this.log("Error parsing config file");
     }
 }
 
-function MatrixAccessory(log, output, input, client, config, io) {
+function MatrixOutput(log, output, numInputs, config, io, client) {
     this.log = log;
-    this.name = config.inputs[input] + " " + config.outputs[output];
-    this.host = config.host;
-    this.port = config.port;
-    this.log("Configuring matrix accessory.  Name: " + this.name + ", Device: " + config.name);
-    this.toggleMode = false;
-    this.commands = {};
+    this.name = config.outputs[output];
+    this.inputs = []
+    this.services = []
+    this.client = client
+
+    this.log("Configuring matrix output: " + config.outputs[output]);
+
+    for(var i = 0; i < numInputs; i++){
+        if (config.inputs[i] !== "") {
+            this.addInput(new MatrixInput(log, config.inputs[i] + " " + config.outputs[output], output, i, io, client))
+        }
+    }
+
+    var informationService = new Service.AccessoryInformation();
+    informationService
+    .setCharacteristic(Characteristic.Manufacturer, 'HDMI-Matrix')
+    .setCharacteristic(Characteristic.Model, config.outputs[output])
+    .setCharacteristic(Characteristic.SerialNumber, config.outputs[output]);
+
+    this.services.push(informationService);
 
     this.output = output;
-    this.input = input;
-    this.selfSet = false;
-    this.client = client;
-    this.currentIO = io[this.output];
-
-    var id = uuid.generate('matrix.' + "." + this.host + "." + output + "." + input);
-    Accessory.call(this, this.name, id);
-    this.uuid_base = id;
-
-
-    this.services = [];
-    this.service = new Service.Switch(this.name);
-    this.service.subtype = "default";
-    this.service
-        .getCharacteristic(Characteristic.On)
-        .on('set', this.setState.bind(this))
-        .on('get', this.getState.bind(this));
-    this.services.push(this.service);
-
-    if (this.currentIO.slice(5,6) == (this.input+1)) {
-      this.selfSet = true;
-      this.service
-        .getCharacteristic(Characteristic.On)
-        .setValue(true);
-    } else {
-      this.selfSet = true;
-      this.service
-        .getCharacteristic(Characteristic.On)
-        .setValue(false);
-    }
+    this.numInputs = numInputs;
 
     this.client.on('data', function (data) {
         var response = data.toString('utf-8').trim();
@@ -166,17 +142,14 @@ function MatrixAccessory(log, output, input, client, config, io) {
 
         if (checkready.length == 2) {
             if (checkready[0].slice(2,3) == this.output+1) {
-                if(checkready[0].slice(5,6) == this.input+1) {
-                    this.log("Recieved command: " + this.name);
-                    this.selfSet = true;
-                    this.service
-                      .getCharacteristic(Characteristic.On)
-                      .setValue(true);
-                } else {
-                    this.selfSet = true;
-                    this.service
-                      .getCharacteristic(Characteristic.On)
-                      .setValue(false);
+                var checkInput = checkready[0].slice(5,6) - 1;
+                for(var i = 0; i < this.inputs.length; i++){
+                    if(checkInput == i) {
+                        this.log("Recieved command: " + this.inputs[i].name);
+                        this.inputs[i].setSelfState(true)
+                    } else {
+                        this.inputs[i].setSelfState(false)
+                    }
                 }
             }
         }
@@ -187,11 +160,51 @@ function MatrixAccessory(log, output, input, client, config, io) {
     }.bind(this));
 }
 
-MatrixAccessory.prototype.getServices = function () {
-    return this.services;
+MatrixOutput.prototype.addInput = function (newInput) {
+    this.inputs.push(newInput);
+    this.services.push(newInput.getService());
 }
 
-MatrixAccessory.prototype.setState = function (state, callback) {
+MatrixOutput.prototype.getServices = function () {
+    this.log(this.name + " getServices")
+    return this.services
+}
+
+
+function MatrixInput(log, name, output, input, io, client) {
+    this.name = name;
+    this.input = input;
+    this.output = output;
+    this.log = log;
+    this.client = client;
+
+    this.service = new Service.Switch(this.name);
+    this.service.subtype = "output" + (output + 1) + "input"+(input+1);
+    this.service
+        .getCharacteristic(Characteristic.On)
+        .on('set', this.setState.bind(this))
+        .on('get', this.getState.bind(this));
+
+    this.currentIO = io
+    if (this.currentIO.slice(5,6) == (this.input+1)) {
+      this.setSelfState(true)
+    } else {
+      this.setSelfState(false)
+    }
+    this.log(this.name);
+}
+
+MatrixInput.prototype.getService = function() {
+    this.log(this.name + " getService");
+    return this.service;
+}
+
+MatrixInput.prototype.getState = function (callback) {
+    callback(null, this.currentIO.slice(5,6) == (this.input+1));
+}
+
+
+MatrixInput.prototype.setState = function (state, callback) {
     var command = "0000";
 
     if (state == '1') {
@@ -209,9 +222,13 @@ MatrixAccessory.prototype.setState = function (state, callback) {
     }
 
     this.client.write(command + "\r\n");
+    this.log(command)
     callback(null);
 }
 
-MatrixAccessory.prototype.getState = function (callback) {
-    callback(null, this.currentIO.slice(5,6) == (this.input+1));
+MatrixInput.prototype.setSelfState = function (state) {
+    this.selfSet = true;
+    this.service
+      .getCharacteristic(Characteristic.On)
+      .setValue(state);
 }
