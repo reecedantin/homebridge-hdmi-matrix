@@ -121,7 +121,7 @@ export class MatrixZones {
         this.api.publishExternalAccessories(PLUGIN_NAME, [this.tvAccessory]);
 
         this.sendMessage = platform.sendMessage.bind(platform)
-        platform.mqttsubscriptions.push(this.onMessage.bind(this))
+        platform.subscriptions.push(this.onMessage.bind(this))
     }
 
     onMessage(topic, payload) {

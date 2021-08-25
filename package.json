@@ -7,10 +7,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git://github.com/reecedantin/homebridge-.git"
-  },
-  "bugs": {
-    "url": "https://github.com/reecedantin/homebridge-mqtt/issues"
+    "url": "git://github.com/reecedantin/homebridge-hdmi-matrix.git"
   },
   "engines": {
     "node": ">=10.17.0",
