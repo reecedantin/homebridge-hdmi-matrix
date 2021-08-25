@@ -1,0 +1,16 @@
+{
+  "platforms": [
+    {
+      "platform" : "homebridge-matrix.MATRIX",
+      "name" : "MATRIX",
+      "devices": [
+          {
+              "type" : "MATRIX",
+              "displayName" : "matrix",
+              "outputs" : ["Kitchen", "Family Room", "", "Fireplace", "", "Balcony", "", "Theater"],
+              "inputs" : ["Fire Stick", "Flex", "", "Blue-Ray", "Apple TV", "", "", ""]
+          }
+      ]
+    }
+  ]
+}
